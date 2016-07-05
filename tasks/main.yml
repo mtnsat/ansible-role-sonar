@@ -24,10 +24,11 @@
     copy: no
     creates: /usr/local/sonar/COPYING
 
-- name: Move Sonar into place.
-  shell: >
-    mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
-    creates=/usr/local/sonar/COPYING
+- name: Add sonar symlink to the installed version.
+  file:
+    src: /usr/local/{{ sonar_version_directory }}
+    dest: /usr/local/sonar
+    state: link
 
 - include: configure.yml
 
