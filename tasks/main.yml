@@ -38,6 +38,9 @@
       file_type: file
     register: sonar_application_other_version
 
+  - include: previous_version.yml
+    when: sonar_application_other_version.matched
+
   - name: Move Sonar into place.
     shell: >
       mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
