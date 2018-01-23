@@ -66,6 +66,10 @@ Change Sonar default user running Sonar.
 
 Change Sonar default group of the user running Sonar.
 
+    sonar_previous_version_backup: False
+
+Turn into True if you want to backup the previous version when upgrading.
+
 ## Dependencies
 
   - geerlingguy.java
