@@ -6,3 +6,9 @@
     line: "{{ item.key }}={{ item.value }}"
   notify: restart sonar
   with_dict: "{{ jdbc_defaults | combine(sonar_properties, recursive=True) }}"
+
+- name: Ensure SonarQube runs as user.
+  lineinfile:
+    dest: /usr/local/sonar/bin/linux-x86-64/sonar.sh
+    regexp: ^#?RUN_AS_USER
+    line: "RUN_AS_USER={{ sonar_user }}"

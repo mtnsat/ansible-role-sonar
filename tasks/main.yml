@@ -1,4 +1,16 @@
 ---
+- name: Ensure sonar group is created.
+  group:
+    name: "{{ sonar_group }}"
+    state: present
+
+- name: Ensure sonar user is created.
+  user:
+    name: "{{ sonar_user }}"
+    group: "{{ sonar_group }}"
+    createhome: no
+    home: /usr/local/sonar
+
 - name: Create a database for Sonar.
   mysql_db:
     name: "{{ sonar_mysql_database }}"
@@ -12,25 +24,70 @@
     password: "{{ sonar_mysql_password }}"
   with_items: "{{ sonar_mysql_allowed_hosts }}"
 
-- name: Download Sonar.
-  get_url:
-    url: "{{ sonar_download_url }}"
-    dest: "{{ workspace }}/{{ sonar_version_directory }}.zip"
-    validate_certs: "{{ sonar_download_validate_certs }}"
+- name: Ensure Sonar application is already in the requested version.
+  stat:
+    path: "/usr/local/sonar/lib/sonar-application-{{ sonar_version }}.jar"
+  register: sonar_application_version
 
-- name: Unzip Sonar.
-  unarchive:
-    src: "{{ workspace }}/{{ sonar_version_directory }}.zip"
-    dest: /usr/local/
-    copy: no
-    creates: /usr/local/sonar/COPYING
+- block:
+  - name: Download Sonar.
+    get_url:
+      url: "{{ sonar_download_url }}"
+      dest: "{{ workspace }}/{{ sonar_version_directory }}.zip"
+      validate_certs: "{{ sonar_download_validate_certs }}"
 
-- name: Move Sonar into place.
-  shell: >
-    mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
-    creates=/usr/local/sonar/COPYING
+  - name: Unzip Sonar.
+    unarchive:
+      src: "{{ workspace }}/{{ sonar_version_directory }}.zip"
+      dest: /usr/local/
+      copy: no
+      creates: "/usr/local/{ sonar_version_directory }}/lib/sonar-application-{{ sonar_version }}.jar"
+
+  - name: Ensure Sonar application is not already installed in another version.
+    find:
+      path: "/usr/local/sonar/lib/"
+      patterns: "sonar-application-*.jar"
+      file_type: file
+    register: sonar_application_other_version
+
+  - include: previous_version.yml
+    when: sonar_application_other_version.matched
+
+  - name: Move Sonar into place.
+    shell: >
+      mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
+      creates=/usr/local/sonar/lib/sonar-application-{{ sonar_version }}.jar
+    when: sonar_install_method == 'move'
+
+  - name: Check /usr/local/sonar is a directory.
+    file:
+      path: /usr/local/sonar
+      state: directory
+    when: (sonar_install_method == 'move' or sonar_install_method == 'copy')
+
+  - name: Copy Sonar into place.
+    shell: >
+      cp -r /usr/local/{{ sonar_version_directory }}/* /usr/local/sonar
+      creates=/usr/local/sonar/lib/sonar-application-{{ sonar_version }}.jar
+    when: sonar_install_method == 'copy'
+
+  - name: Clean the origin of the copy.
+    file:
+      path: /usr/local/{{ sonar_version_directory }}
+      state: absent
+    when: sonar_install_method == 'copy'
+
+  - name: Add sonar symlink to the installed version.
+    file:
+      src: /usr/local/{{ sonar_version_directory }}
+      dest: /usr/local/sonar
+      state: link
+    when: sonar_install_method == 'link'
+
+  when: not sonar_application_version.stat.exists
 
 - include: configure.yml
+- include: plugins.yml
 
 - name: Symlink sonar bin.
   file:
@@ -55,12 +112,27 @@
     mode: 0755
   when: "ansible_service_mgr == 'systemd'"
 
+- name: Ensure ownership of SonarQube objects.
+  file:
+    path: /usr/local/sonar
+    owner: "{{ sonar_user }}"
+    group: "{{ sonar_group }}"
+    recurse: yes
+
 - name: Ensure Sonar is running and set to start on boot.
   service: name=sonar state=started enabled=yes
 
-- name: Allow Sonar time to build on first start.
-  pause: seconds=180
+- name: Ensure Sonar is started.
+  wait_for:
+    path: /usr/local/sonar/logs/sonar.log
+    delay: 10
+    search_regex: 'app\[o\.s\.p\.m\.Monitor\] Process\[web\] is up'
   when: sonar_symlink.changed
 
 - name: Make sure Sonar is responding on the configured port.
   wait_for: port=9000 delay=3 timeout=300
+
+- name: Clean workspace.
+  file:
+    path: "{{ workspace }}/{{ sonar_version_directory }}.zip"
+    state: absent
