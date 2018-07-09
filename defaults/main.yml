@@ -25,6 +25,12 @@ sonar_mysql_host: localhost
 sonar_mysql_port: "3306"
 sonar_mysql_database: sonar
 
+jdbc_defaults:
+  sonar.jdbc.username: "{{ sonar_mysql_username }}"
+  sonar.jdbc.password: "{{ sonar_mysql_password }}"
+  sonar.jdbc.url: "jdbc:mysql://{{ sonar_mysql_host }}:{{ sonar_mysql_port }}/{{ sonar_mysql_database }}?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&useConfigs=maxPerformance"
+  sonar.web.context: "{{ sonar_web_context }}"
+
 sonar_mysql_allowed_hosts:
   - "127.0.0.1"
   - "::1"
