@@ -70,6 +70,16 @@ Change Sonar default group of the user running Sonar.
 
 Turn into True if you want to backup the previous version when upgrading.
 
+    sonar_plugins:
+      - name: LDAP
+        url: https://sonarsource.bintray.com/Distribution/sonar-ldap-plugin/sonar-ldap-plugin-2.2.0.608.jar
+
+A list of plugins and their download urls. (no defaults set)
+
+    sonar_properties
+      properties.key: properties.value
+
+Support for additional sonar.properties key, value pairs (no defaults set)
 ## Dependencies
 
   - geerlingguy.java

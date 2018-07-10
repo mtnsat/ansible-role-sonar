@@ -1,4 +1,11 @@
 ---
+- name: Install Sonarqube plugins
+  get_url:
+    url={{ item.url }}
+    dest=/usr/local/sonar/extensions/plugins
+  notify: restart sonar
+  with_items: '{{ sonar_plugins }}'
+
 - name: configure Sonarqube.properties file.
   lineinfile:
     path: /usr/local/sonar/conf/sonar.properties
